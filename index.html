@@ -320,10 +320,10 @@
       <div class="step-body">
         <div class="step-title">Paste them below</div>
         <div class="input-group" style="margin-bottom:10px">
-          <input type="text" id="sb-url" placeholder="https://bsldwgiyuqvxvwsjgydg.supabase.co" autocomplete="off" spellcheck="false">
+          <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off" spellcheck="false">
         </div>
         <div class="input-group">
-          <input type="text" id="sb-key" placeholder="sb_publishable_Nx489bVUga8t8zucwvikQQ_rg_nQk5O" autocomplete="off" spellcheck="false">
+          <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." autocomplete="off" spellcheck="false">
         </div>
       </div>
     </div>
@@ -988,12 +988,30 @@ function showToast(msg, color) {
 }
 
 // ── INIT ──
-window.addEventListener('load', () => {
-  const savedUrl = localStorage.getItem('sb_url');
-  const savedKey = localStorage.getItem('sb_key');
-  if (savedUrl && savedKey) {
-    document.getElementById('sb-url').value = savedUrl;
-    document.getElementById('sb-key').value = savedKey;
+// Paste your Supabase credentials here to skip the setup screen
+const SUPABASE_URL = 'https://bsldwgiyuqvxvwsjgydg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Nx489bVUga8t8zucwvikQQ_rg_nQk5O';
+
+window.addEventListener('load', async () => {
+  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('seed-screen').style.display = 'flex';
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: existing } = await db.from('fleets').select('id').limit(1);
+    if (existing && existing.length > 0) {
+      fleetId = existing[0].id;
+      log('Connected — loading your fleet.', 'ok');
+      document.getElementById('seed-continue').style.display = 'block';
+    } else {
+      await seedData();
+    }
+  } else {
+    const savedUrl = localStorage.getItem('sb_url');
+    const savedKey = localStorage.getItem('sb_key');
+    if (savedUrl && savedKey) {
+      document.getElementById('sb-url').value = savedUrl;
+      document.getElementById('sb-key').value = savedKey;
+    }
   }
 });
 </script>
