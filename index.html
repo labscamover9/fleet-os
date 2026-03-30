@@ -3,6 +3,659 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FleetOS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--bg2:#181c26;--bg3:#1f2433;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);--text:#e8eaf0;--muted:#7c8299;--hint:#4a5068;--accent:#3d7fff;--green:#22c87a;--amber:#f5a623;--red:#f04f4f;--teal:#1ac9a0;--purple:#8b5cf6;--radius:10px;--font:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+input,select,button{font-family:var(--font)}
+.screen{display:none;min-height:100vh}.screen.active{display:flex}
+/* LOGIN */
+#login-screen{align-items:center;justify-content:center;padding:24px}
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;max-width:420px;width:100%}
+.login-logo{font-size:24px;font-weight:500;margin-bottom:4px}.login-logo span{color:var(--accent)}
+.login-sub{color:var(--muted);font-size:13px;margin-bottom:32px}
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.fg label{font-size:12px;color:var(--muted)}
+.fg input,.fg select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;color:var(--text);font-size:14px;outline:none;transition:border .15s}
+.fg input:focus,.fg select:focus{border-color:var(--accent)}
+.fg input::placeholder{color:var(--hint)}
+.btn-primary{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.88}.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.auth-err{background:rgba(240,79,79,.12);border:1px solid rgba(240,79,79,.3);border-radius:var(--radius);padding:10px 13px;font-size:12px;color:var(--red);margin-top:12px;display:none}
+.auth-info{background:rgba(61,127,255,.12);border:1px solid rgba(61,127,255,.3);border-radius:var(--radius);padding:10px 13px;font-size:12px;color:var(--accent);margin-top:12px;display:none}
+.auth-link{text-align:center;margin-top:14px;font-size:12px;color:var(--muted)}
+.auth-link a{color:var(--accent);cursor:pointer}
+.auth-link a:hover{text-decoration:underline}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.guest-note{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:var(--radius);padding:8px 13px;font-size:12px;color:var(--amber);margin-bottom:16px;text-align:center}
+/* LOADING */
+#loading-screen{align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--muted)}
+/* APP */
+#app-screen{flex-direction:column;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.logo{font-size:16px;font-weight:500}.logo span{color:var(--accent)}
+.nav{display:flex;gap:2px}
+.ni{font-size:12px;padding:5px 11px;border-radius:7px;color:var(--muted);cursor:pointer;transition:all .12s}
+.ni:hover,.ni.active{color:var(--text);background:var(--bg3)}
+.ni.hidden{display:none}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.lang-toggle{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.lb{font-size:11px;font-weight:500;padding:4px 10px;cursor:pointer;background:transparent;color:var(--muted);border:none;transition:all .12s}
+.lb.active{background:var(--bg3);color:var(--text)}
+.user-pill{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px}
+.u-av{width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#fff}
+.u-name{font-size:12px}.u-role{font-size:10px;color:var(--muted)}
+.signout{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid var(--border)}
+.signout:hover{color:var(--red);border-color:rgba(240,79,79,.3)}
+/* CONTENT */
+.content-area{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow-y:auto;padding:20px;flex-direction:column;gap:16px}
+.page.active{display:flex}
+.ph{display:flex;align-items:center;justify-content:space-between}
+.page-title{font-size:18px;font-weight:500}
+.guest-banner{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:var(--radius);padding:10px 16px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px}
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.ml{font-size:11px;color:var(--muted);margin-bottom:8px}
+.mv{font-size:24px;font-weight:500;line-height:1}
+.ms{font-size:11px;color:var(--muted);margin-top:4px}
+/* PANELS */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.ph2{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pt{font-size:12px;font-weight:500}
+.pa{font-size:11px;color:var(--accent);cursor:pointer}
+/* MAP */
+.map-box{background:var(--bg3);border-radius:8px;height:180px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.map-hint{font-size:11px;color:var(--hint);z-index:1}
+.map-grid-svg{position:absolute;inset:0;opacity:.15}
+.truck-pin{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid var(--bg2)}
+.truck-tag{position:absolute;font-size:9px;color:var(--muted);white-space:nowrap}
+.map-legend{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.li2{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.ld{width:7px;height:7px;border-radius:50%}
+/* TABLES */
+.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt th{text-align:left;padding:6px 10px;font-size:10px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--border)}
+.dt td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:rgba(255,255,255,.02)}
+/* STATUS */
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pg{background:rgba(34,200,122,.15);color:var(--green)}
+.pa2{background:rgba(245,166,35,.15);color:var(--amber)}
+.pr{background:rgba(240,79,79,.15);color:var(--red)}
+.pb{background:rgba(61,127,255,.15);color:var(--accent)}
+.pgr{background:rgba(255,255,255,.06);color:var(--muted)}
+.pp{background:rgba(139,92,246,.15);color:var(--purple)}
+/* ROWS */
+.tr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px}
+.tr-row:last-child{border-bottom:none}
+.tr-row:hover{background:rgba(255,255,255,.02);padding-left:6px}
+.tr-id{font-size:12px;font-weight:500;min-width:36px}
+.tr-dr{font-size:11px;color:var(--muted);flex:1}
+.tr-st{font-size:11px;color:var(--hint);text-align:right;white-space:nowrap}
+.ar{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.ar:last-child{border-bottom:none}
+.ai{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:1px}
+.air{background:rgba(240,79,79,.15);color:var(--red)}
+.aia{background:rgba(245,166,35,.15);color:var(--amber)}
+.aib{background:rgba(61,127,255,.15);color:var(--accent)}
+.at{font-size:12px;font-weight:500}
+.as2{font-size:11px;color:var(--muted);margin-top:1px}
+.atm{font-size:10px;color:var(--hint);white-space:nowrap;padding-top:3px}
+.lr{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+.lr:last-child{border-bottom:none}
+.lid{font-weight:500;min-width:52px}
+.lro{flex:1;color:var(--muted)}
+.let{color:var(--hint);text-align:right;white-space:nowrap}
+.pmr{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.pmr:last-child{border-bottom:none}
+.pmt{font-size:12px;font-weight:500;min-width:36px}
+.pmtk{font-size:11px;color:var(--muted);flex:1}
+.pmd{font-size:10px;text-align:right;min-width:80px;white-space:nowrap}
+/* FORMS */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgs{display:flex;flex-direction:column;gap:5px}
+.fgs label{font-size:11px;color:var(--muted)}
+.fgs input,.fgs select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 11px;color:var(--text);font-size:13px;outline:none;transition:border .15s}
+.fgs input:focus,.fgs select:focus{border-color:var(--accent)}
+.fgs select option{background:var(--bg3)}
+/* BUTTONS */
+.btn-ol{padding:8px 16px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:12px;cursor:pointer;transition:all .15s}
+.btn-ol:hover{background:var(--bg3)}
+.btn-ac{padding:8px 16px;background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-ac:hover{opacity:.85}
+.bsr{padding:5px 10px;background:rgba(240,79,79,.12);border:1px solid rgba(240,79,79,.25);border-radius:7px;color:var(--red);font-size:11px;cursor:pointer}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:24px}
+.mo.open{display:flex}
+.md{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px 32px;width:100%;max-width:480px}
+.md-title{font-size:16px;font-weight:500;margin-bottom:20px}
+.md-act{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;display:none;align-items:center;gap:10px;min-width:240px}
+.toast.show{display:flex}
+.tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* ADMIN */
+.co-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s;margin-bottom:10px}
+.co-card:hover{border-color:var(--accent)}
+.co-icon{width:40px;height:40px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:#fff;flex-shrink:0}
+.co-name{font-size:14px;font-weight:500}
+.co-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.co-stats{display:flex;gap:16px;font-size:11px;color:var(--muted)}
+.si{display:flex;flex-direction:column;align-items:center;gap:2px}
+.sv{font-size:16px;font-weight:500;color:var(--text)}
+/* BAR */
+.bw{display:inline-block;vertical-align:middle;height:5px;background:var(--bg3);border-radius:999px;overflow:hidden}
+.bf{height:100%;border-radius:999px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s infinite;margin-right:5px}
+.hw{display:none}
+@media(max-width:720px){.metrics{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}.nav{display:none}.fg2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="loading-screen" class="screen active">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading FleetOS...</div>
+</div>
+
+<div id="login-screen" class="screen">
+  <div class="login-card">
+    <div class="login-logo">Fleet<span>OS</span></div>
+    <div class="login-sub" id="login-sub">Sign in to your fleet dashboard</div>
+
+    <div id="form-login">
+      <div class="fg"><label>Email</label><input type="email" id="l-email" placeholder="you@company.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="fg"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn-primary" id="l-btn" onclick="doLogin()">Sign in</button>
+      <div class="auth-err" id="l-err"></div>
+      <div class="divider"></div>
+      <div class="auth-link">New company? <a onclick="switchForm('signup')">Create account</a></div>
+      <div class="auth-link" style="margin-top:8px"><a onclick="switchForm('guest')">View as guest</a></div>
+    </div>
+
+    <div id="form-signup" style="display:none">
+      <div class="fg"><label>Full name</label><input type="text" id="s-name" placeholder="John Martinez"></div>
+      <div class="fg"><label>Email</label><input type="email" id="s-email" placeholder="you@company.com"></div>
+      <div class="fg"><label>Password (min 8 chars)</label><input type="password" id="s-pass" placeholder="••••••••"></div>
+      <div class="fg"><label>Company / fleet name</label><input type="text" id="s-company" placeholder="Salinas Trucking LLC"></div>
+      <button class="btn-primary" id="s-btn" onclick="doSignup()">Create account</button>
+      <div class="auth-err" id="s-err"></div>
+      <div class="auth-info" id="s-info"></div>
+      <div class="auth-link" style="margin-top:14px"><a onclick="switchForm('login')">Back to sign in</a></div>
+    </div>
+
+    <div id="form-guest" style="display:none">
+      <div class="guest-note">Read-only view — no changes can be made</div>
+      <div class="fg"><label>Guest access code</label><input type="text" id="g-code" placeholder="Code from your fleet manager"></div>
+      <button class="btn-primary" onclick="doGuestLogin()">View as guest</button>
+      <div class="auth-err" id="g-err"></div>
+      <div class="auth-link" style="margin-top:14px"><a onclick="switchForm('login')">Back to sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen" class="screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">Fleet<span>OS</span></div>
+      <nav class="nav">
+        <div class="ni active" onclick="showPage('dashboard',this)" id="n-dashboard">Dashboard</div>
+        <div class="ni" onclick="showPage('trucks',this)" id="n-trucks">Trucks</div>
+        <div class="ni" onclick="showPage('dispatch',this)" id="n-dispatch">Dispatch</div>
+        <div class="ni" onclick="showPage('hos',this)" id="n-hos">HOS / ELD</div>
+        <div class="ni hidden" onclick="showPage('admin',this)" id="n-admin">All companies</div>
+        <div class="ni hidden" onclick="showPage('users',this)" id="n-users">Team</div>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <div class="lang-toggle">
+        <button class="lb active" onclick="setLang('en',this)">EN</button>
+        <button class="lb" onclick="setLang('es',this)">ES</button>
+      </div>
+      <div class="user-pill">
+        <div class="u-av" id="u-av">?</div>
+        <div><div class="u-name" id="u-name">—</div><div class="u-role" id="u-rl">—</div></div>
+      </div>
+      <button class="signout" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="content-area">
+
+    <div class="page active" id="page-dashboard">
+      <div id="gb" style="display:none" class="guest-banner">&#128065; Viewing as guest — read only. Contact your fleet manager for full access.</div>
+      <div class="metrics">
+        <div class="metric"><div class="ml" id="lb-trucks">Active trucks</div><div class="mv" id="m-active">—</div><div class="ms" id="m-active-s"></div></div>
+        <div class="metric"><div class="ml" id="lb-alerts">Open alerts</div><div class="mv" style="color:var(--red)">2</div><div class="ms" id="m-alert-s">1 critical · 1 warning</div></div>
+        <div class="metric"><div class="ml" id="lb-pm">PM due this week</div><div class="mv" style="color:var(--amber)">3</div><div class="ms" id="m-pm-s">1 overdue · 2 upcoming</div></div>
+        <div class="metric"><div class="ml" id="lb-loads">Loads today</div><div class="mv" id="m-loads">—</div><div class="ms" id="m-loads-s"></div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="ph2"><div class="pt"><span class="live-dot"></span><span id="lb-map">Live fleet map</span></div><div class="pa" id="lb-fmap">Full map ↗</div></div>
+          <div class="map-box" id="map-box">
+            <svg class="map-grid-svg" width="100%" height="100%"><defs><pattern id="g" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0L0 0 0 28" fill="none" stroke="white" stroke-width="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>
+            <div class="map-hint" id="lb-mhint">Live GPS · HERE Maps integration</div>
+          </div>
+          <div class="map-legend">
+            <div class="li2"><div class="ld" style="background:var(--green)"></div><span id="lb-mov">Moving</span></div>
+            <div class="li2"><div class="ld" style="background:var(--amber)"></div><span id="lb-idl">Idle</span></div>
+            <div class="li2"><div class="ld" style="background:var(--red)"></div><span id="lb-alt">Alert</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph2"><div class="pt" id="lb-tstat">Truck status</div><div class="pa" onclick="showPage('trucks',document.getElementById('n-trucks'))" id="lb-atk">All trucks ↗</div></div>
+          <div id="dash-trucks"><div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div></div>
+        </div>
+      </div>
+      <div class="three-col">
+        <div class="panel">
+          <div class="ph2"><div class="pt" id="lb-ap">Active alerts</div></div>
+          <div class="ar"><div class="ai air">!</div><div><div class="at" id="a1t">Engine fault · T-04</div><div class="as2" id="a1s">DTC P0128 — thermostat likely failing</div></div><div class="atm">8:41 AM</div></div>
+          <div class="ar"><div class="ai aia">!</div><div><div class="at" id="a2t">PM overdue · T-02</div><div class="as2" id="a2s">Oil change 1,240 mi past due</div></div><div class="atm" id="a2tm">Yesterday</div></div>
+          <div class="ar"><div class="ai aib">i</div><div><div class="at" id="a3t">DVIR resolved · T-11</div><div class="as2" id="a3s">Left brake light replaced</div></div><div class="atm" id="a3tm">Yesterday</div></div>
+        </div>
+        <div class="panel">
+          <div class="ph2"><div class="pt" id="lb-lp">Today's loads</div><div class="pa" onclick="showPage('dispatch',document.getElementById('n-dispatch'))" id="lb-dl">Dispatch ↗</div></div>
+          <div id="dash-loads"><div style="padding:16px;color:var(--muted)">Loading...</div></div>
+        </div>
+        <div class="panel">
+          <div class="ph2"><div class="pt" id="lb-pmp">Maintenance queue</div></div>
+          <div class="pmr"><div class="pmt">T-02</div><div class="pmtk" id="p1t">Oil change</div><div class="pmd" style="color:var(--red)" id="p1d">Overdue 1,240 mi</div></div>
+          <div class="pmr"><div class="pmt">T-06</div><div class="pmtk" id="p2t">Brake inspection</div><div class="pmd" style="color:var(--amber)" id="p2d">Due in 400 mi</div></div>
+          <div class="pmr"><div class="pmt">T-11</div><div class="pmtk" id="p3t">Tire rotation</div><div class="pmd" style="color:var(--amber)" id="p3d">Due in 750 mi</div></div>
+          <div class="pmr"><div class="pmt">T-08</div><div class="pmtk" id="p4t">Air filter</div><div class="pmd" id="p4d">Due in 1,600 mi</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-trucks">
+      <div class="ph"><div class="page-title" id="lb-tt">Trucks</div><button class="btn-ac hw" id="btn-addtruck" onclick="openModal('modal-truck')">+ Add truck</button></div>
+      <div class="panel"><div id="trucks-wrap"><div style="text-align:center;padding:30px;color:var(--muted)">Loading...</div></div></div>
+    </div>
+
+    <div class="page" id="page-dispatch">
+      <div class="ph"><div class="page-title" id="lb-dt">Dispatch board</div><button class="btn-ac hw" id="btn-addload" onclick="openModal('modal-load')">+ New load</button></div>
+      <div class="panel"><div id="loads-wrap"><div style="text-align:center;padding:30px;color:var(--muted)">Loading...</div></div></div>
+    </div>
+
+    <div class="page" id="page-hos">
+      <div class="ph"><div class="page-title" id="lb-ht">HOS / ELD overview</div></div>
+      <div class="panel">
+        <table class="dt"><thead><tr>
+          <th id="lh-dr">Driver</th><th id="lh-tr">Truck</th><th id="lh-st">Status</th>
+          <th id="lh-dv">Drive used</th><th id="lh-od">On-duty</th><th id="lh-cy">Cycle (70h)</th><th id="lh-vi">Violations</th>
+        </tr></thead><tbody id="hos-body"></tbody></table>
+      </div>
+    </div>
+
+    <div class="page" id="page-admin">
+      <div class="ph"><div class="page-title">All companies</div><button class="btn-ac" onclick="openModal('modal-company')">+ Add company</button></div>
+      <div class="metrics" id="admin-metrics" style="margin-bottom:16px"></div>
+      <div id="companies-wrap"><div style="text-align:center;padding:30px;color:var(--muted)">Loading...</div></div>
+    </div>
+
+    <div class="page" id="page-users">
+      <div class="ph"><div class="page-title" id="lb-ut">Team</div><button class="btn-ac hw" onclick="openModal('modal-invite')">+ Invite member</button></div>
+      <div class="panel"><div id="users-wrap"><div style="text-align:center;padding:30px;color:var(--muted)">Loading...</div></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="mo" id="modal-truck"><div class="md">
+  <div class="md-title" id="lb-mt">Add truck</div>
+  <div class="fg2">
+    <div class="fgs"><label>Unit #</label><input id="f-unit" placeholder="T-05"></div>
+    <div class="fgs"><label>Year</label><input id="f-year" placeholder="2020" type="number"></div>
+    <div class="fgs"><label>Make</label><input id="f-make" placeholder="Freightliner"></div>
+    <div class="fgs"><label>Model</label><input id="f-model" placeholder="Cascadia"></div>
+    <div class="fgs"><label>VIN</label><input id="f-vin" placeholder="optional"></div>
+    <div class="fgs"><label>Odometer (mi)</label><input id="f-odo" placeholder="0" type="number"></div>
+  </div>
+  <div class="md-act"><button class="btn-ol" onclick="closeModal('modal-truck')" id="lb-cancel">Cancel</button><button class="btn-ac" onclick="saveTruck()" id="lb-savetruck">Save truck</button></div>
+</div></div>
+
+<div class="mo" id="modal-load"><div class="md">
+  <div class="md-title" id="lb-ml">New load</div>
+  <div class="fg2">
+    <div class="fgs" style="grid-column:1/-1"><label id="lb-pickup">Pickup address</label><input id="f-pickup" placeholder="2400 Commerce St, Dallas, TX"></div>
+    <div class="fgs" style="grid-column:1/-1"><label id="lb-delivery">Delivery address</label><input id="f-delivery" placeholder="5600 Navigation Blvd, Houston, TX"></div>
+    <div class="fgs"><label id="lb-cargo">Cargo</label><input id="f-cargo" placeholder="Palletized freight"></div>
+    <div class="fgs"><label id="lb-weight">Weight (lbs)</label><input id="f-weight" placeholder="22000" type="number"></div>
+    <div class="fgs"><label id="lb-asntruck">Assign truck</label><select id="f-truck"><option value="">— Select —</option></select></div>
+    <div class="fgs"><label id="lb-deadline">Deadline</label><input id="f-deadline" type="datetime-local"></div>
+  </div>
+  <div class="md-act"><button class="btn-ol" onclick="closeModal('modal-load')">Cancel</button><button class="btn-ac" onclick="saveLoad()" id="lb-createload">Create load</button></div>
+</div></div>
+
+<div class="mo" id="modal-invite"><div class="md">
+  <div class="md-title" id="lb-inv">Invite team member</div>
+  <div class="fg2">
+    <div class="fgs" style="grid-column:1/-1"><label>Email</label><input id="i-email" placeholder="driver@company.com" type="email"></div>
+    <div class="fgs" style="grid-column:1/-1"><label>Full name</label><input id="i-name" placeholder="Ramon Salinas"></div>
+    <div class="fgs"><label id="lb-role">Role</label>
+      <select id="i-role"><option value="fleet_admin">Fleet admin</option><option value="dispatcher">Dispatcher</option><option value="driver" selected>Driver</option><option value="guest">Guest</option></select>
+    </div>
+    <div class="fgs"><label>Language</label><select id="i-lang"><option value="en">English</option><option value="es">Español</option></select></div>
+  </div>
+  <div class="md-act"><button class="btn-ol" onclick="closeModal('modal-invite')">Cancel</button><button class="btn-ac" onclick="sendInvite()" id="lb-sendinv">Send invite</button></div>
+</div></div>
+
+<div class="mo" id="modal-company"><div class="md">
+  <div class="md-title">Add company</div>
+  <div class="fg2">
+    <div class="fgs" style="grid-column:1/-1"><label>Company name</label><input id="c-name" placeholder="Salinas Trucking LLC"></div>
+    <div class="fgs" style="grid-column:1/-1"><label>Fleet admin name</label><input id="c-admin" placeholder="John Martinez"></div>
+    <div class="fgs"><label>Plan</label><select id="c-plan"><option value="starter">Starter</option><option value="pro" selected>Professional</option><option value="enterprise">Enterprise</option></select></div>
+    <div class="fgs"><label>Fleet admin email (optional)</label><input id="c-email" placeholder="owner@company.com" type="email"></div>
+  </div>
+  <div class="md-act"><button class="btn-ol" onclick="closeModal('modal-company')">Cancel</button><button class="btn-ac" onclick="saveCompany()">Create company</button></div>
+</div></div>
+
+<div class="toast" id="toast"><div class="tdot" id="tdot"></div><span id="tmsg"></span></div>
+
+<script>
+// ── CONFIG — paste your Supabase credentials ──
+const SUPABASE_URL = 'https://bsldwgiyuqvxvwsjgydg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Nx489bVUga8t8zucwvikQQ_rg_nQk5O';
+// ── Super admin emails (you + co-founder) ──
+const SUPER_ADMINS = ['scamposrivera@icloud.com','micqueal121005@outlook.com'];
+
+let db, me, prof, lang='en', fleetId=null, isGuest=false;
+
+const STR = {
+  en:{
+    nav:{dashboard:'Dashboard',trucks:'Trucks',dispatch:'Dispatch',hos:'HOS / ELD',users:'Team'},
+    roles:{super_admin:'Super admin',fleet_admin:'Fleet admin',dispatcher:'Dispatcher',driver:'Driver',guest:'Guest viewer'},
+    status:{active:'Active',shop:'In shop',inactive:'Inactive'},
+    loads:{pending:'Pending',assigned:'Assigned',en_route:'En route',at_pickup:'At pickup',loaded:'Loaded',in_transit:'In transit',at_delivery:'At delivery',delivered:'Delivered'},
+    labels:{'lb-trucks':'Active trucks','lb-alerts':'Open alerts','lb-pm':'PM due this week','lb-loads':'Loads today','lb-map':'Live fleet map','lb-fmap':'Full map ↗','lb-mhint':'Live GPS · HERE Maps integration','lb-mov':'Moving','lb-idl':'Idle','lb-alt':'Alert','lb-tstat':'Truck status','lb-atk':'All trucks ↗','lb-ap':'Active alerts','lb-lp':"Today's loads",'lb-dl':'Dispatch ↗','lb-pmp':'Maintenance queue','lb-tt':'Trucks','lb-dt':'Dispatch board','lb-ht':'HOS / ELD overview','lb-ut':'Team','lb-mt':'Add truck','lb-ml':'New load','lb-inv':'Invite team member','lb-cancel':'Cancel','lb-savetruck':'Save truck','lb-createload':'Create load','lb-sendinv':'Send invite','lb-pickup':'Pickup address','lb-delivery':'Delivery address','lb-cargo':'Cargo','lb-weight':'Weight (lbs)','lb-asntruck':'Assign truck','lb-deadline':'Deadline','lb-role':'Role','lh-dr':'Driver','lh-tr':'Truck','lh-st':'Status','lh-dv':'Drive used','lh-od':'On-duty','lh-cy':'Cycle (70h)','lh-vi':'Violations','a1t':'Engine fault · T-04','a1s':'DTC P0128 — thermostat likely failing','a2t':'PM overdue · T-02','a2s':'Oil change 1,240 mi past due','a2tm':'Yesterday','a3t':'DVIR resolved · T-11','a3s':'Left brake light replaced','a3tm':'Yesterday','p1t':'Oil change','p1d':'Overdue 1,240 mi','p2t':'Brake inspection','p2d':'Due in 400 mi','p3t':'Tire rotation','p3d':'Due in 750 mi','p4t':'Air filter','p4d':'Due in 1,600 mi'},
+    none:'None',ok:'OK',at_risk:'At risk',driving:'Driving',
+    no_trucks:'No trucks yet — click "+ Add truck" to get started.',no_loads:'No loads yet.',no_users:'No team members yet.',
+    saved:'Saved!',deleted:'Deleted.',invited:'Member added!',
+    in_shop:'in shop',in_transit:'in transit',delivered:'delivered',
+    remove:'Remove',viewing:'Viewing',
+  },
+  es:{
+    nav:{dashboard:'Panel',trucks:'Camiones',dispatch:'Despacho',hos:'HOS / ELD',users:'Equipo'},
+    roles:{super_admin:'Super admin',fleet_admin:'Admin de flota',dispatcher:'Despachador',driver:'Conductor',guest:'Invitado'},
+    status:{active:'Activo',shop:'En taller',inactive:'Inactivo'},
+    loads:{pending:'Pendiente',assigned:'Asignado',en_route:'En ruta',at_pickup:'En recogida',loaded:'Cargado',in_transit:'En tránsito',at_delivery:'En entrega',delivered:'Entregado'},
+    labels:{'lb-trucks':'Camiones activos','lb-alerts':'Alertas abiertas','lb-pm':'Mant. esta semana','lb-loads':'Cargas hoy','lb-map':'Mapa en vivo','lb-fmap':'Mapa completo ↗','lb-mhint':'GPS en vivo · HERE Maps','lb-mov':'En movimiento','lb-idl':'Inactivo','lb-alt':'Alerta','lb-tstat':'Estado de camiones','lb-atk':'Todos ↗','lb-ap':'Alertas activas','lb-lp':'Cargas de hoy','lb-dl':'Despacho ↗','lb-pmp':'Cola de mantenimiento','lb-tt':'Camiones','lb-dt':'Panel de despacho','lb-ht':'Resumen HOS / ELD','lb-ut':'Equipo','lb-mt':'Agregar camión','lb-ml':'Nueva carga','lb-inv':'Invitar miembro','lb-cancel':'Cancelar','lb-savetruck':'Guardar camión','lb-createload':'Crear carga','lb-sendinv':'Enviar invitación','lb-pickup':'Dirección de recogida','lb-delivery':'Dirección de entrega','lb-cargo':'Carga','lb-weight':'Peso (lbs)','lb-asntruck':'Asignar camión','lb-deadline':'Límite','lb-role':'Rol','lh-dr':'Conductor','lh-tr':'Camión','lh-st':'Estado','lh-dv':'Conducción','lh-od':'En servicio','lh-cy':'Ciclo (70h)','lh-vi':'Infracciones','a1t':'Falla motor · T-04','a1s':'DTC P0128 — falla termostato','a2t':'Mant. vencido · T-02','a2s':'Cambio aceite 2,000 km vencido','a2tm':'Ayer','a3t':'DVIR resuelto · T-11','a3s':'Luz trasera reemplazada','a3tm':'Ayer','p1t':'Cambio de aceite','p1d':'Vencido 2,000 km','p2t':'Revisión de frenos','p2d':'En 640 km','p3t':'Rotación de llantas','p3d':'En 1,200 km','p4t':'Filtro de aire','p4d':'En 2,575 km'},
+    none:'Ninguna',ok:'OK',at_risk:'En riesgo',driving:'Conduciendo',
+    no_trucks:'Sin camiones — haga clic en "+ Agregar camión".',no_loads:'Sin cargas.',no_users:'Sin miembros.',
+    saved:'¡Guardado!',deleted:'Eliminado.',invited:'¡Miembro agregado!',
+    in_shop:'en taller',in_transit:'en tránsito',delivered:'entregadas',
+    remove:'Eliminar',viewing:'Viendo',
+  }
+};
+function S(k){ return STR[lang][k]||STR.en[k]||k; }
+function Sl(k){ return (STR[lang].labels&&STR[lang].labels[k])||STR.en.labels[k]||k; }
+
+function rolePill(r){ return {super_admin:'pr',fleet_admin:'pb',dispatcher:'pa2',driver:'pg',guest:'pgr'}[r]||'pgr'; }
+function canEdit(){ return !isGuest && prof?.role!=='guest' && prof?.role!=='driver'; }
+function isSA(){ return prof?.role==='super_admin'; }
+
+// ── INIT ──
+window.addEventListener('load', async () => {
+  if(!SUPABASE_URL||SUPABASE_URL==='YOUR_SUPABASE_URL'){
+    document.getElementById('login-sub').textContent='Set SUPABASE_URL and SUPABASE_KEY in the HTML file first.';
+    showScreen('login-screen'); return;
+  }
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const { data:{ session } } = await db.auth.getSession();
+  if(session) await boot(session.user);
+  else showScreen('login-screen');
+  db.auth.onAuthStateChange(async(_,s)=>{ if(s&&!me) await boot(s.user); });
+});
+
+async function boot(user){
+  me = user;
+  if(SUPER_ADMINS.includes(user.email)){
+    prof = { role:'super_admin', full_name: user.user_metadata?.full_name || user.email.split('@')[0], language:'en', fleet_id:null };
+  } else {
+    const { data } = await db.from('users').select('*').eq('id',user.id).single();
+    if(data){ prof = data; }
+    else {
+      const { data:fl } = await db.from('fleets').insert({ name:(user.user_metadata?.company||user.email.split('@')[0]+"'s Fleet") }).select().single();
+      fleetId = fl?.id;
+      prof = { id:user.id, fleet_id:fleetId, role:'fleet_admin', full_name:user.user_metadata?.full_name||user.email.split('@')[0], language:'en' };
+      await db.from('users').upsert(prof);
+    }
+  }
+  lang = prof?.language||'en';
+  fleetId = prof?.fleet_id||null;
+  isGuest = prof?.role==='guest';
+  launch();
+}
+
+function launch(){
+  showScreen('app-screen');
+  applyRole(); applyLang();
+  loadDash(); loadTrucks(); loadLoads(); loadHOS(); loadUsers();
+  if(isSA()) loadAdmin();
+  startRealtime();
+}
+
+function applyRole(){
+  const role = prof?.role||'guest', name = prof?.full_name||'User';
+  document.getElementById('u-av').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('u-name').textContent = name;
+  document.getElementById('u-rl').textContent = S('roles')[role]||role;
+  document.getElementById('n-admin').classList.toggle('hidden', !isSA());
+  document.getElementById('n-users').classList.toggle('hidden', isGuest||role==='driver');
+  document.getElementById('gb').style.display = isGuest||role==='guest'?'flex':'none';
+  // show/hide edit buttons
+  document.querySelectorAll('.hw').forEach(el=>el.style.display=canEdit()?'':'none');
+}
+
+function applyLang(){
+  // Nav
+  Object.entries(S('nav')).forEach(([k,v])=>{ const el=document.getElementById('n-'+k); if(el) el.textContent=v; });
+  // All labelled elements
+  Object.entries(STR[lang].labels||{}).forEach(([k,v])=>{ const el=document.getElementById(k); if(el) el.textContent=v; });
+  // Alert sub labels for this lang
+  ['m-alert-s','m-pm-s'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&id==='m-alert-s') el.textContent=lang==='es'?'1 crítica · 1 advertencia':'1 critical · 1 warning';
+    if(el&&id==='m-pm-s') el.textContent=lang==='es'?'1 vencido · 2 próximos':'1 overdue · 2 upcoming';
+  });
+}
+
+// ── REALTIME ──
+function startRealtime(){
+  if(!db||!fleetId||isGuest) return;
+  db.channel('rt').on('postgres_changes',{event:'*',schema:'public',table:'loads',filter:`fleet_id=eq.${fleetId}`},()=>{ loadLoads(); loadDash(); }).on('postgres_changes',{event:'*',schema:'public',table:'trucks',filter:`fleet_id=eq.${fleetId}`},()=>{ loadTrucks(); loadDash(); }).subscribe();
+}
+
+// ── DASHBOARD ──
+async function loadDash(){
+  if(!db||!fleetId) return;
+  const [{ data:trucks },{ data:loads }] = await Promise.all([db.from('trucks').select('*').eq('fleet_id',fleetId), db.from('loads').select('*').eq('fleet_id',fleetId)]);
+  const act=(trucks||[]).filter(t=>t.status==='active').length, shop=(trucks||[]).filter(t=>t.status==='shop').length;
+  const trans=(loads||[]).filter(l=>l.status==='in_transit').length, del=(loads||[]).filter(l=>l.status==='delivered').length;
+  document.getElementById('m-active').textContent=`${act}/${(trucks||[]).length}`;
+  document.getElementById('m-active-s').textContent=`${shop} ${S('in_shop')}`;
+  document.getElementById('m-loads').textContent=(loads||[]).length;
+  document.getElementById('m-loads-s').textContent=`${trans} ${S('in_transit')} · ${del} ${S('delivered')}`;
+  const sc={active:'var(--green)',shop:'var(--amber)',inactive:'var(--hint)'};
+  document.getElementById('dash-trucks').innerHTML=(trucks||[]).slice(0,6).map(t=>`<div class="tr-row"><div class="sdot" style="background:${sc[t.status]||'var(--hint)'}"></div><div class="tr-id">${t.unit_number}</div><div class="tr-dr">${t.make||''} ${t.model||''}</div><div class="tr-st">${t.odometer_mi?Math.round(t.odometer_mi).toLocaleString()+' mi':'—'}</div></div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--muted)">${S('no_trucks')}</div>`;
+  // map
+  const pins=[{top:'28%',left:'22%',c:'var(--red)'},{top:'45%',left:'55%',c:'var(--green)'},{top:'60%',left:'38%',c:'var(--green)'},{top:'35%',left:'70%',c:'var(--amber)'}];
+  const mb=document.getElementById('map-box');
+  mb.querySelectorAll('.truck-pin,.truck-tag').forEach(e=>e.remove());
+  (trucks||[]).slice(0,4).forEach((t,i)=>{ const p=pins[i]; const pin=document.createElement('div'); pin.className='truck-pin'; pin.style.cssText=`top:${p.top};left:${p.left};background:${p.c}`; const tag=document.createElement('div'); tag.className='truck-tag'; tag.style.cssText=`top:calc(${p.top} - 14px);left:calc(${p.left} + 12px)`; tag.textContent=t.unit_number; mb.appendChild(pin); mb.appendChild(tag); });
+  const mh=mb.querySelector('.map-hint'); if(mh&&trucks?.length) mh.style.display='none';
+  const pm={pending:'pgr',assigned:'pb',en_route:'pb',at_pickup:'pa2',loaded:'pa2',in_transit:'pb',at_delivery:'pa2',delivered:'pg'};
+  const sh=a=>(a||'—').split(',')[0];
+  document.getElementById('dash-loads').innerHTML=(loads||[]).slice(0,4).map(l=>`<div class="lr"><span class="lid">${l.id.slice(0,6).toUpperCase()}</span><span class="pill ${pm[l.status]||'pgr'}">${S('loads')[l.status]||l.status}</span><span class="lro">${sh(l.pickup_address)} → ${sh(l.delivery_address)}</span><span class="let">${l.deadline_at?new Date(l.deadline_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—'}</span></div>`).join('')||`<div style="padding:16px;color:var(--muted)">${S('no_loads')}</div>`;
+}
+
+// ── TRUCKS ──
+async function loadTrucks(){
+  if(!db||!fleetId) return;
+  const { data:t } = await db.from('trucks').select('*').eq('fleet_id',fleetId).order('unit_number');
+  const w=document.getElementById('trucks-wrap');
+  if(!t||!t.length){ w.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">${S('no_trucks')}</div>`; return; }
+  const sp=S('status'), pc={active:'pg',shop:'pa2',inactive:'pgr'};
+  w.innerHTML=`<table class="dt"><thead><tr><th>Unit</th><th>${lang==='es'?'Año / Marca':'Year / Make / Model'}</th><th>VIN</th><th>${lang==='es'?'Odómetro':'Odometer'}</th><th>${lang==='es'?'Estado':'Status'}</th>${canEdit()?'<th></th>':''}</tr></thead><tbody>${t.map(r=>`<tr><td><strong>${r.unit_number}</strong></td><td>${[r.year,r.make,r.model].filter(Boolean).join(' ')}</td><td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${r.vin||'—'}</td><td>${r.odometer_mi?Math.round(r.odometer_mi).toLocaleString()+' mi':'—'}</td><td><span class="pill ${pc[r.status]||'pgr'}">${sp[r.status]||r.status}</span></td>${canEdit()?`<td><button class="bsr" onclick="delTruck('${r.id}')">${S('remove')}</button></td>`:''}</tr>`).join('')}</tbody></table>`;
+}
+
+// ── LOADS ──
+async function loadLoads(){
+  if(!db||!fleetId) return;
+  const { data:l } = await db.from('loads').select('*,trucks(unit_number)').eq('fleet_id',fleetId).order('created_at',{ascending:false});
+  const w=document.getElementById('loads-wrap');
+  if(!l||!l.length){ w.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">${S('no_loads')}</div>`; return; }
+  const pm={pending:'pgr',assigned:'pb',en_route:'pb',at_pickup:'pa2',loaded:'pa2',in_transit:'pb',at_delivery:'pa2',delivered:'pg'};
+  const sh=a=>(a||'—').split(',').slice(0,2).join(',');
+  const sl=S('loads');
+  w.innerHTML=`<table class="dt"><thead><tr><th>${lang==='es'?'ID':'Load ID'}</th><th>${lang==='es'?'Estado':'Status'}</th><th>${lang==='es'?'Camión':'Truck'}</th><th>${lang==='es'?'Ruta':'Route'}</th><th>${lang==='es'?'Carga':'Cargo'}</th><th>${lang==='es'?'Límite':'Deadline'}</th>${canEdit()?`<th>${lang==='es'?'Acción':'Action'}</th>`:''}</tr></thead><tbody>${l.map(r=>`<tr><td style="font-family:var(--mono);font-size:11px">${r.id.slice(0,8).toUpperCase()}</td><td><span class="pill ${pm[r.status]||'pgr'}">${sl[r.status]||r.status}</span></td><td>${r.trucks?.unit_number||'—'}</td><td style="font-size:11px;color:var(--muted)">${sh(r.pickup_address)} → ${sh(r.delivery_address)}</td><td style="font-size:11px;color:var(--muted)">${r.cargo_desc||'—'}</td><td style="font-size:11px;color:var(--muted)">${r.deadline_at?new Date(r.deadline_at).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>${canEdit()?`<td>${r.status!=='delivered'?`<select onchange="updLoad('${r.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px;font-family:var(--font)">${Object.keys(sl).map(s=>`<option value="${s}"${s===r.status?' selected':''}>${sl[s]}</option>`).join('')}</select>`:'<span style="color:var(--green);font-size:11px">✓</span>'}</td>`:''}</tr>`).join('')}</tbody></table>`;
+}
+
+async function updLoad(id,status){ await db.from('loads').update({status,...(status==='delivered'?{delivered_at:new Date().toISOString()}:{})}).eq('id',id); loadLoads(); loadDash(); toast(lang==='es'?'Estado actualizado':'Updated','green'); }
+
+// ── HOS ──
+async function loadHOS(){
+  if(!db||!fleetId) return;
+  const { data:d } = await db.from('users').select('*').eq('fleet_id',fleetId).eq('role','driver');
+  function bar(u,t,w){ const p=Math.min(Math.round(u/t*100),100),c=p>=90?'var(--red)':p>=75?'var(--amber)':'var(--teal)'; return `<div class="bw" style="width:${w}px"><div class="bf" style="width:${p}%;background:${c}"></div></div> <span style="font-size:11px;color:${c}">${u}h</span>`; }
+  document.getElementById('hos-body').innerHTML=(d||[]).map(r=>{ const risk=r.hos_drive_used>=10||r.hos_cycle_used>=65; return `<tr><td><strong>${r.full_name}</strong> <span style="font-size:10px;color:var(--hint)">${(r.language||'en').toUpperCase()}</span></td><td style="color:var(--muted);font-size:11px">${S('driving')}</td><td><span class="pill ${risk?'pr':'pg'}">${risk?S('at_risk'):S('ok')}</span></td><td>${bar(r.hos_drive_used||0,11,80)}</td><td>${bar(r.hos_on_used||0,14,80)}</td><td>${bar(r.hos_cycle_used||0,70,80)}</td><td style="color:${risk?'var(--red)':'var(--green)'}">${risk?S('at_risk'):S('none')}</td></tr>`; }).join('')||`<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">${lang==='es'?'Sin conductores':'No drivers yet'}</td></tr>`;
+}
+
+// ── ADMIN ──
+async function loadAdmin(){
+  if(!db) return;
+  const [{ data:fleets },{ data:trucks },{ data:users }] = await Promise.all([db.from('fleets').select('*').order('created_at'), db.from('trucks').select('fleet_id,status'), db.from('users').select('fleet_id,role')]);
+  document.getElementById('admin-metrics').innerHTML=`<div class="metric"><div class="ml">Total companies</div><div class="mv">${(fleets||[]).length}</div></div><div class="metric"><div class="ml">Total trucks</div><div class="mv">${(trucks||[]).length}</div></div><div class="metric"><div class="ml">Total users</div><div class="mv">${(users||[]).length}</div></div><div class="metric"><div class="ml">Active trucks</div><div class="mv" style="color:var(--green)">${(trucks||[]).filter(t=>t.status==='active').length}</div></div>`;
+  document.getElementById('companies-wrap').innerHTML=(fleets||[]).map(fl=>{ const ft=(trucks||[]).filter(t=>t.fleet_id===fl.id), fu=(users||[]).filter(u=>u.fleet_id===fl.id), ini=fl.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(), pc={starter:'pgr',pro:'pb',enterprise:'pp'}[fl.plan||'starter']||'pgr'; return `<div class="co-card" onclick="viewCo('${fl.id}','${fl.name}')"><div class="co-icon">${ini}</div><div style="flex:1"><div class="co-name">${fl.name} <span class="pill ${pc}" style="margin-left:6px">${fl.plan||'starter'}</span></div><div class="co-meta">Created ${new Date(fl.created_at).toLocaleDateString()}</div></div><div class="co-stats"><div class="si"><div class="sv">${ft.length}</div><div>trucks</div></div><div class="si"><div class="sv">${fu.length}</div><div>users</div></div><div class="si"><div class="sv" style="color:var(--green)">${ft.filter(t=>t.status==='active').length}</div><div>active</div></div></div><div style="color:var(--muted);font-size:18px">›</div></div>`; }).join('')||`<div style="text-align:center;padding:40px;color:var(--muted)">No companies yet.</div>`;
+}
+
+async function viewCo(id, name){ fleetId=id; toast(`${S('viewing')}: ${name}`,'green'); showPage('dashboard',document.getElementById('n-dashboard')); loadDash(); loadTrucks(); loadLoads(); loadHOS(); loadUsers(); }
+
+// ── USERS ──
+async function loadUsers(){
+  if(!db||!fleetId) return;
+  const { data:u } = await db.from('users').select('*').eq('fleet_id',fleetId).order('role');
+  const w=document.getElementById('users-wrap');
+  if(!u||!u.length){ w.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">${S('no_users')}</div>`; return; }
+  const rl=S('roles');
+  w.innerHTML=`<table class="dt"><thead><tr><th>${lang==='es'?'Nombre':'Name'}</th><th>${lang==='es'?'Rol':'Role'}</th><th>${lang==='es'?'Idioma':'Language'}</th><th>${lang==='es'?'Teléfono':'Phone'}</th>${canEdit()?'<th></th>':''}</tr></thead><tbody>${u.map(r=>`<tr><td><strong>${r.full_name}</strong></td><td><span class="pill ${rolePill(r.role)}">${rl[r.role]||r.role}</span></td><td>${(r.language||'en').toUpperCase()}</td><td style="color:var(--muted);font-size:11px">${r.phone||'—'}</td>${canEdit()?`<td>${r.id!==me?.id?`<button class="bsr" onclick="delUser('${r.id}')">${S('remove')}</button>`:'<span style="font-size:10px;color:var(--muted)">you</span>'}</td>`:''}</tr>`).join('')}</tbody></table>`;
+}
+
+// ── AUTH ──
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim(), pass=document.getElementById('l-pass').value, btn=document.getElementById('l-btn');
+  if(!email||!pass){ showErr('l-err','Enter email and password.'); return; }
+  btn.disabled=true; btn.textContent='Signing in...';
+  const { error } = await db.auth.signInWithPassword({ email, password:pass });
+  btn.disabled=false; btn.textContent='Sign in';
+  if(error) showErr('l-err', error.message);
+}
+
+async function doSignup(){
+  const name=document.getElementById('s-name').value.trim(), email=document.getElementById('s-email').value.trim(), pass=document.getElementById('s-pass').value, company=document.getElementById('s-company').value.trim(), btn=document.getElementById('s-btn');
+  if(!name||!email||!pass||!company){ showErr('s-err','Fill in all fields.'); return; }
+  if(pass.length<8){ showErr('s-err','Password must be at least 8 characters.'); return; }
+  btn.disabled=true; btn.textContent='Creating...';
+  const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ full_name:name, company } } });
+  btn.disabled=false; btn.textContent='Create account';
+  if(error){ showErr('s-err',error.message); return; }
+  if(data.user){
+    const { data:fl } = await db.from('fleets').insert({ name:company }).select().single();
+    if(fl) await db.from('users').insert({ id:data.user.id, fleet_id:fl.id, role:'fleet_admin', full_name:name, language:'en' });
+  }
+  document.getElementById('s-err').style.display='none';
+  const info=document.getElementById('s-info'); info.textContent='Account created! Check your email to confirm, then sign in.'; info.style.display='block';
+}
+
+async function doGuestLogin(){
+  const code=document.getElementById('g-code').value.trim();
+  if(!code){ showErr('g-err','Enter your guest access code.'); return; }
+  const { data:fl } = await db.from('fleets').select('id,name').ilike('id',code.toLowerCase()+'%').single();
+  if(!fl){ showErr('g-err','Invalid code. Check with your fleet manager.'); return; }
+  isGuest=true; fleetId=fl.id;
+  prof={ role:'guest', full_name:'Guest', fleet_id:fl.id, language:'en' };
+  launch();
+}
+
+async function doLogout(){
+  if(!isGuest) await db.auth.signOut();
+  me=null; prof=null; fleetId=null; isGuest=false;
+  showScreen('login-screen'); switchForm('login');
+}
+
+// ── CRUD ──
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+async function saveTruck(){
+  const unit=document.getElementById('f-unit').value.trim(); if(!unit){ alert('Enter a unit number.'); return; }
+  const { error } = await db.from('trucks').insert({ fleet_id:fleetId, unit_number:unit, year:parseInt(document.getElementById('f-year').value)||null, make:document.getElementById('f-make').value.trim()||null, model:document.getElementById('f-model').value.trim()||null, vin:document.getElementById('f-vin').value.trim()||null, odometer_mi:parseFloat(document.getElementById('f-odo').value)||0 });
+  if(!error){ closeModal('modal-truck'); toast(S('saved'),'green'); loadTrucks(); loadDash(); } else alert(error.message);
+}
+
+async function saveLoad(){
+  const pickup=document.getElementById('f-pickup').value.trim(), delivery=document.getElementById('f-delivery').value.trim();
+  if(!pickup||!delivery){ alert('Enter pickup and delivery addresses.'); return; }
+  const tid=document.getElementById('f-truck').value||null;
+  const { error } = await db.from('loads').insert({ fleet_id:fleetId, truck_id:tid, pickup_address:pickup, delivery_address:delivery, cargo_desc:document.getElementById('f-cargo').value.trim()||null, weight_lbs:parseInt(document.getElementById('f-weight').value)||null, deadline_at:document.getElementById('f-deadline').value||null, status:tid?'assigned':'pending' });
+  if(!error){ closeModal('modal-load'); toast(S('saved'),'green'); loadLoads(); loadDash(); } else alert(error.message);
+}
+
+async function sendInvite(){
+  const email=document.getElementById('i-email').value.trim(), name=document.getElementById('i-name').value.trim(), role=document.getElementById('i-role').value, language=document.getElementById('i-lang').value;
+  if(!email||!name){ alert('Enter name and email.'); return; }
+  const { error } = await db.from('users').insert({ fleet_id:fleetId, role, full_name:name, language });
+  if(!error){ closeModal('modal-invite'); toast(S('invited'),'green'); loadUsers(); } else alert(error.message);
+}
+
+async function saveCompany(){
+  const name=document.getElementById('c-name').value.trim(), adminName=document.getElementById('c-admin').value.trim(), plan=document.getElementById('c-plan').value;
+  if(!name){ alert('Enter company name.'); return; }
+  const { data:fl, error } = await db.from('fleets').insert({ name, plan }).select().single();
+  if(error){ alert(error.message); return; }
+  if(adminName) await db.from('users').insert({ fleet_id:fl.id, role:'fleet_admin', full_name:adminName, language:'en' });
+  closeModal('modal-company'); toast(S('saved'),'green'); loadAdmin();
+}
+
+async function delTruck(id){ if(!confirm(lang==='es'?'¿Eliminar este camión?':'Delete this truck?')) return; await db.from('trucks').delete().eq('id',id); toast(S('deleted'),'amber'); loadTrucks(); loadDash(); }
+async function delUser(id){ if(!confirm('Remove this member?')) return; await db.from('users').delete().eq('id',id); toast(S('deleted'),'amber'); loadUsers(); }
+
+// ── UI ──
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function showPage(id,el){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active')); document.getElementById('page-'+id).classList.add('active'); if(el) el.classList.add('active'); }
+function switchForm(f){ ['login','signup','guest'].forEach(id=>document.getElementById('form-'+id).style.display=id===f?'':'none'); }
+function showErr(id, msg){ const e=document.getElementById(id); e.textContent=msg; e.style.display='block'; }
+function setLang(l,btn){ lang=l; document.querySelectorAll('.lb').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); applyLang(); loadDash(); loadTrucks(); loadLoads(); loadHOS(); loadUsers(); if(isSA()) loadAdmin(); }
+function toast(msg, color){ const t=document.getElementById('toast'),d=document.getElementById('tdot'),m=document.getElementById('tmsg'); d.style.background=color==='green'?'var(--green)':color==='amber'?'var(--amber)':'var(--red)'; m.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000); }
+
+// Guest access code = first 8 chars of fleet UUID — tell your fleet managers to find this in Supabase → Table Editor → fleets → their row → id column
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FleetOS — Fleet Management</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
